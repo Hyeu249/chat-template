@@ -7,7 +7,7 @@ import {
   ContentListUnion,
   GenerateContentResponse,
 } from "@google/genai";
-
+import { base64L16ToWavDataUri } from "../utilities/wav";
 const ai = new GoogleGenAI({ apiKey: GEMINI_API });
 
 export const sendMessageStream = async (
@@ -87,6 +87,11 @@ export const generateContent = async (
       }
     }
 
+    if (response.usageMetadata?.candidatesTokensDetails) {
+      console.log("response?.usageMetadata: ", response?.usageMetadata);
+      console.log("-------------------------");
+    }
+
     return [texts.join(""), imageData];
   } catch (error) {
     console.error("Gemini API error:", error);
@@ -126,4 +131,31 @@ export const generatedImage = async (
     console.error("Gemini API error:", error);
     throw new Error("Error!");
   }
+};
+
+export const generateSpeech = async (
+  text: string,
+  instruction: string = "Say cheerfully"
+): Promise<string> => {
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash-preview-tts",
+    contents: [{ parts: [{ text: `${instruction}:${text}` }] }],
+    config: {
+      responseModalities: ["AUDIO"],
+      speechConfig: {
+        voiceConfig: {
+          prebuiltVoiceConfig: { voiceName: "Kore" },
+        },
+      },
+    },
+  });
+
+  const base64L16 =
+    response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+
+  if (response.usageMetadata?.candidatesTokensDetails) {
+    console.log("response?.usageMetadata: ", response?.usageMetadata);
+    console.log("-------------------------");
+  }
+  return base64L16ToWavDataUri(base64L16 || "");
 };

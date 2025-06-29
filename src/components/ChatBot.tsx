@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,11 +7,14 @@ import {
   FlatList,
   Image,
   StyleSheet,
+  Pressable,
+  ScrollView,
 } from "react-native";
 import Wrapper from "./Wrapper";
 import {
   sendMessageStream,
   generatedImage,
+  generateSpeech,
   generateContent,
 } from "../api/gemini"; // Giả sử bạn đã tạo hàm này để gửi tin nhắn đến Gemini
 import { Content as GeminiContent } from "@google/genai";
@@ -21,6 +24,9 @@ import Select from "./Select";
 import { v4 as uuidv4 } from "uuid";
 import Lightbox from "react-native-lightbox-v2";
 import { Checkbox } from "react-native-paper";
+import * as Speech from "expo-speech";
+import { Ionicons } from "@expo/vector-icons";
+
 const modelList = [{ label: "", value: "" }];
 
 const chatTypes = [
@@ -31,6 +37,10 @@ const chatTypes = [
   {
     label: "image",
     value: "image",
+  },
+  {
+    label: "voice",
+    value: "voice",
   },
 ];
 
@@ -59,7 +69,7 @@ type ContentWithId = GeminiContent & {
 
 type ChatMessage = {
   id: string;
-  type: "user" | "model" | "image";
+  type: "user" | "model" | "image" | "audio";
   text?: string;
   image?: string;
   time: number;
@@ -73,6 +83,21 @@ function ChatBot() {
   const [model, setModel] = useState("gemini-1.5-flash-8b");
   const [imagenumber, setImageNumber] = useState("0");
   const [targetImage, setTargetImage] = useState("");
+  const [voices, setVoices] = useState([{ label: "", value: "" }]);
+  const [voice, setVoice] = useState("");
+
+  useEffect(() => {
+    const fetchVoices = async () => {
+      const voices = await Speech.getAvailableVoicesAsync();
+      setVoices(
+        voices.map((e) => {
+          return { label: e.identifier, value: e.identifier };
+        })
+      );
+    };
+
+    fetchVoices();
+  }, []);
 
   function handleSetChatType(value: string) {
     setChatType(value);
@@ -98,6 +123,14 @@ function ChatBot() {
     modelList[0] = {
       label: "gemini-2.0-flash-preview-image-generation",
       value: "gemini-2.0-flash-preview-image-generation",
+    };
+    modelList.splice(1, 1);
+    modelList.splice(1, 1);
+  }
+  if (chatType === "voice") {
+    modelList[0] = {
+      label: "gemini-2.5-flash-preview-tts",
+      value: "gemini-2.5-flash-preview-tts",
     };
     modelList.splice(1, 1);
     modelList.splice(1, 1);
@@ -208,9 +241,37 @@ function ChatBot() {
     setMessages((prev) => [...botPackage, ...prev]);
   }
 
+  async function getVoice() {
+    if (!input.trim() || !model) return;
+    const clonedMessages = cloneDeep(messages);
+
+    const userMessage: ChatMessage = {
+      id: uuidv4(),
+      type: "user",
+      text: input,
+      time: Date.now(),
+    };
+
+    setMessages((prev) => [userMessage, ...prev]);
+    setInput("");
+
+    setIsLoading(true);
+    const botReplyText = await generateSpeech(input);
+
+    const botMessage: ChatMessage = {
+      id: uuidv4(),
+      type: "audio",
+      text: botReplyText,
+      time: Date.now(),
+    };
+    setIsLoading(false);
+    setMessages((prev) => [botMessage, ...prev]);
+  }
+
   const handleSend = async () => {
     if (chatType === "text") getChats();
     if (chatType === "image") getImages();
+    if (chatType === "voice") getVoice();
   };
 
   return (
@@ -227,8 +288,26 @@ function ChatBot() {
                 item.type === "user" ? styles.user : styles.bot,
               ]}
             >
-              {item.type !== "image" && (
-                <Text style={styles.messageText}>{item.text}</Text>
+              {["user", "model"].includes(item.type) && (
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <Text style={styles.messageText}>{item.text}</Text>
+
+                  <Pressable
+                    onPress={() => {
+                      Speech.speak(item.text || "", {
+                        voice: voice,
+                      });
+                    }}
+                    style={({ pressed }) => ({
+                      marginLeft: 8,
+                      opacity: pressed ? 0.5 : 1,
+                      padding: 4,
+                      borderRadius: 6,
+                    })}
+                  >
+                    <Ionicons name="volume-high" size={20} color="#555" />
+                  </Pressable>
+                </View>
               )}
               {item.type === "image" && (
                 <Lightbox>
@@ -249,12 +328,12 @@ function ChatBot() {
                   }
                 />
               )}
+
+              {item.type === "audio" && <audio controls src={item.text} />}
             </View>
           )}
         />
-
         <ApiTimer isRunning={isLoading} />
-
         <View style={styles.inputContainer}>
           <TextInput
             value={input}
@@ -270,20 +349,26 @@ function ChatBot() {
           />
           <Button title="Gửi" onPress={handleSend} />
         </View>
-
         <Select
           label="Text or Image"
           data={chatTypes}
           value={chatType}
           onChange={handleSetChatType}
         />
-
         <Select
           label="Chọn model"
           data={modelList}
           value={model}
           onChange={setModel}
         />
+        <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }}>
+          <Select
+            label="Chọn Voice"
+            data={voices}
+            value={voice}
+            onChange={setVoice}
+          />
+        </ScrollView>
       </View>
     </Wrapper>
   );
