@@ -1,21 +1,14 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
-import {GEMINI_API} from '@env'
+import React from "react";
+import { StatusBar } from "expo-status-bar";
+import { LanguageProvider } from "./LanguageContext";
+
+import Navigation from "./navigation";
 
 export default function App() {
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app! {GEMINI_API || "whats up!"}</Text>
+    <LanguageProvider>
+      <Navigation />
       <StatusBar style="auto" />
-    </View>
+    </LanguageProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
