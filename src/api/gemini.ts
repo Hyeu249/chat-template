@@ -135,7 +135,7 @@ export const generatedImage = async (
 
 export const generateSpeech = async (
   text: string,
-  instruction: string = "Say cheerfully"
+  instruction: string = "Reading bussiness book"
 ): Promise<string> => {
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash-preview-tts",
@@ -154,6 +154,7 @@ export const generateSpeech = async (
     response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
 
   if (response.usageMetadata?.candidatesTokensDetails) {
+    console.log("text?.length: ", text?.length);
     console.log("response?.usageMetadata: ", response?.usageMetadata);
     console.log("-------------------------");
   }

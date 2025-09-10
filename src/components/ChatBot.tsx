@@ -26,6 +26,8 @@ import Lightbox from "react-native-lightbox-v2";
 import { Checkbox } from "react-native-paper";
 import * as Speech from "expo-speech";
 import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import HeaderMenu from "./HeaderMenu";
 
 const modelList = [{ label: "", value: "" }];
 
@@ -80,11 +82,28 @@ function ChatBot() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [chatType, setChatType] = useState("text");
-  const [model, setModel] = useState("gemini-1.5-flash-8b");
+  const [model, setModel] = useState("gemma-3n-e2b-it");
   const [imagenumber, setImageNumber] = useState("0");
   const [targetImage, setTargetImage] = useState("");
   const [voices, setVoices] = useState([{ label: "", value: "" }]);
   const [voice, setVoice] = useState("");
+  const navigation = useNavigation();
+
+  useEffect(() => {
+    navigation.setOptions({
+      title: "Chi tiết", // đổi title động
+      headerRight: () => (
+        <HeaderMenu
+          items={[
+            {
+              title: "Delete",
+              onPress: async () => {},
+            },
+          ]}
+        />
+      ),
+    });
+  }, []);
 
   useEffect(() => {
     const fetchVoices = async () => {
@@ -107,14 +126,18 @@ function ChatBot() {
 
   if (chatType === "text") {
     modelList[0] = {
+      label: "gemma-3n-e2b-it",
+      value: "gemma-3n-e2b-it",
+    };
+    modelList[1] = {
       label: "gemini-1.5-flash-8b",
       value: "gemini-1.5-flash-8b",
     };
-    modelList[1] = {
+    modelList[2] = {
       label: "gemini-2.0-flash-lite",
       value: "gemini-2.0-flash-lite",
     };
-    modelList[2] = {
+    modelList[3] = {
       label: "gemini-2.0-flash",
       value: "gemini-2.0-flash",
     };
@@ -126,12 +149,14 @@ function ChatBot() {
     };
     modelList.splice(1, 1);
     modelList.splice(1, 1);
+    modelList.splice(1, 1);
   }
   if (chatType === "voice") {
     modelList[0] = {
       label: "gemini-2.5-flash-preview-tts",
       value: "gemini-2.5-flash-preview-tts",
     };
+    modelList.splice(1, 1);
     modelList.splice(1, 1);
     modelList.splice(1, 1);
   }
@@ -169,11 +194,27 @@ function ChatBot() {
     const maxOutputTokens = undefined; // Số lượng token tối đa cho phản hồi
     const temperature = 0.1; // Nhiệt độ của mô hình, có thể điều chỉnh
     const systemInstruction = undefined;
+    const _systemInstruction = `
+You have the following array of functions: ['create_field(name, type)', 'create_table(name)', 'create_function(name)', 'create_menu(name, action_name)', 'create_button(name, type)', 'create_tab(name)'].
+
+Based on the user's question:
+- Determine which function from the array matches the request.
+- If any parameters are missing, ask specific questions to gather those parameters.
+- Only when you have the function and all its parameters, ask for confirmation in this format: 
+  "Do you want to create <function_name> with <param1> = '...' and <param2> = '...'? "
+- If the user confirms (or responds in any way that indicates agreement), reply: 
+  "Your request has been executed with <function_name> and parameters: <param1> = '...', <param2> = '...'."
+- Do not provide long explanations. Keep the response concise and focused on the function and its parameters.
+
+ 
+    `;
+
+    const newInput = `${_systemInstruction}. The question is '${input}'`;
 
     setIsLoading(true);
     const botReplyText = await sendMessageStream(
       model,
-      input,
+      newInput,
       maxOutputTokens,
       history,
       temperature,
@@ -361,7 +402,7 @@ function ChatBot() {
           value={model}
           onChange={setModel}
         />
-        <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }}>
+        <ScrollView keyboardShouldPersistTaps="handled" style={{}}>
           <Select
             label="Chọn Voice"
             data={voices}
